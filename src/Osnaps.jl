@@ -13,4 +13,6 @@ const 𝚷 = 2.0 * π
 
 fcall(fn::Function, x::VecI) = fn(x)
 
+include("./optimizer/minimizer.jl")
+
 end # module
