@@ -76,7 +76,7 @@ end
 function check!(xnew::VecI, elites::VecIO{Agent}, edx::Int, fn::Function, cons::NTuple)
     violation = eval_violation(xnew, cons)
     violation > 0.0 && return @inbounds check!(xnew, violation, elites[edx]) # x[new] is infeasible
-    return check!(xnew, fcall(f, xnew), elites, edx)                         # x[new] is feasible
+    return check!(xnew, fcall(fn, xnew), elites, edx)                        # x[new] is feasible
 end
 
 # Matchup for a feasible x[new] trial in elites, @code_warntype ✓

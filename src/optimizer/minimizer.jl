@@ -87,14 +87,14 @@ function minimize!(obj::Minimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND
     elites = return_elites(agents, NR)
     throng = return_throng(agents, NR, NP)
 
-    inits!(agents, lb, ub)
-    inits!(agents, fn, cons)
-    binsort!(agents)
-
     generation = 0
     while generation < avgtimes
         generation += 1
         itcount     = 0
+
+        inits!(agents, lb, ub)
+        inits!(agents, fn, cons)
+        binsort!(agents)
         @inbounds while itcount < itmax
             itcount += 1
             ss = logistic(itcount, 0.5 * itmax, -0.618, 20.0 / itmax, 2.0)
