@@ -18,4 +18,6 @@ include("./utils/stats.jl")
 include("./utils/sorting.jl")
 include("./optimizer/minimizer.jl")
 
+export fcall, 𝚷
+
 end # module

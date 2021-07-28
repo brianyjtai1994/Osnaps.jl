@@ -42,5 +42,5 @@ function return_agents(ND::Int, NP::Int)
 end
 
 #### subgroups, @code_warntype ✓
-return_elites(agents::VecI{Agent}, NR::Int)          = view(agents, 1:NR)
-return_throng(agents::VecI{Agent}, NR::Int, NP::Int) = view(agents, NR+1:NP)
+return_elites(agents::VecI{Agent}, NE::Int)          = view(agents, 1:NE)
+return_throng(agents::VecI{Agent}, NE::Int, NP::Int) = view(agents, NE+1:NP)
