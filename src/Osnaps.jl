@@ -14,6 +14,7 @@ const 𝚷 = 2.0 * π
 fcall(fn::Function, x::VecI) = fn(x)
 
 include("./BLAS/level1.jl")
+include("./utils/fft.jl")
 include("./utils/stats.jl")
 include("./utils/sorting.jl")
 include("./optimizer/minimizer.jl")
