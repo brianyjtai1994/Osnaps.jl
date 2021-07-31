@@ -11,7 +11,8 @@ const MatIO = AbstractMatrix # In/Out Matrix
 
 const 𝚷 = 2.0 * π
 
-using LinearAlgebra.BLAS: trsv!
+using LinearAlgebra.BLAS: gemv!, symv!, trsv!, gemm!, symm!
+using LinearAlgebra.LAPACK: potrf!
 
 fcall(fn::Function, x::VecI) = fn(x)
 
