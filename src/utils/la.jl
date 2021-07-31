@@ -13,3 +13,10 @@ function swap!(v::VecIO, i::Int, j::Int) # @code_warntype ✓
     @inbounds v[j] = temp
     return nothing
 end
+
+function swap!(m::MatI, i1::Int, j1::Int, i2::Int, j2::Int) # @code_warntype ✓
+    @inbounds temp     = m[i1,j1]
+    @inbounds m[i1,j1] = m[i2,j2]
+    @inbounds m[i2,j2] = temp
+    return nothing
+end

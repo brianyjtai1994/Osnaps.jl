@@ -11,9 +11,12 @@ const MatIO = AbstractMatrix # In/Out Matrix
 
 const 𝚷 = 2.0 * π
 
+using LinearAlgebra.BLAS: trsv!
+
 fcall(fn::Function, x::VecI) = fn(x)
 
-include("./BLAS/level1.jl")
+include("./utils/la.jl")
+include("./utils/lu.jl")
 include("./utils/fft.jl")
 include("./utils/stats.jl")
 include("./utils/sorting.jl")
