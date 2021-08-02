@@ -1,5 +1,17 @@
 # export nrm2, swap!
 
+function apy2(x::Real, y::Real)
+    isnan(x) && return x
+    isnan(y) && return y
+    # general case
+    xabs = abs(x)
+    yabs = abs(y)
+    w = max(xabs, yabs)
+    z = min(xabs, yabs)
+    iszero(z) && return w
+    return w * sqrt(1.0 + abs2(z / w))
+end
+
 function nrm2(x::VecI{Tx}, y::VecI{Ty}, b::VecB{Tb}) where {Tx<:Real,Ty<:Real,Tb<:Real} # @code_warntype ✓
     @simd for i in eachindex(b)
         @inbounds b[i] = abs2(x[i] - y[i])
