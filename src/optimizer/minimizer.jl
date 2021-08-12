@@ -1,10 +1,10 @@
-export Minimizer, minimize!
+export minimizer, minimize!
 
 include("./agent.jl")
 include("./constraint.jl")
 include("./optimizer.jl")
 
-struct Minimizer
+struct GenericMinimizer
     xsol::Vector{Float64}
     xerr::Vector{Float64}
     buff::Vector{Float64}
@@ -13,7 +13,7 @@ struct Minimizer
     NP::Int
     NE::Int
 
-    function Minimizer(ND::Int, NP::Int, NE::Int)
+    function GenericMinimizer(ND::Int, NP::Int, NE::Int)
         xsol = Vector{Float64}(undef, ND)
         xerr = Vector{Float64}(undef, ND)
         buff = Vector{Float64}(undef, ND)
@@ -34,7 +34,7 @@ Arguments:
 - `NP`: Desired population size (*optional*).
 - `NE`: Desired size of elites (*optional*).
 """
-minimizer(ND::Int; NP::Int=35*ND, NE::Int=ND+1) = Minimizer(ND, NP, NE)
+minimizer(ND::Int; NP::Int=35*ND, NE::Int=ND+1) = GenericMinimizer(ND, NP, NE)
 
 # @code_warntype ✓
 function inits!(agents::VecIO{Agent}, lb::NTuple, ub::NTuple)
@@ -84,7 +84,7 @@ function group!(fork::VecIO{Int}, agents::VecI{Agent}, NE::Int, NC::Int)
 end
 
 """
-    minimize!(obj::Minimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1)
+    minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1)
 
 An interface function to proceed the minimization.
 
@@ -102,21 +102,21 @@ Arguments:
               prevent the population falling into local minimal (*optional*).
 - `avgtimes`: Number of average times of the whole minimization process (*optional*).
 """
-minimize!(obj::Minimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(obj, fn, lb, ub, itmax, dmax, avgtimes)
+minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(obj, fn, lb, ub, itmax, dmax, avgtimes)
 
 # @code_warntype ✓
-function minimize!(obj::Minimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}
-    NP = obj.NP
-    NE = obj.NE
+function minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}
+    NP = o.NP
+    NE = o.NE
     NC = NP - NE
 
     cons = boxbounds(lb, ub)
-    xsol = obj.xsol
-    xerr = obj.xerr
-    buff = obj.buff
-    fork = obj.fork
+    xsol = o.xsol
+    xerr = o.xerr
+    buff = o.buff
+    fork = o.fork
 
-    agents = obj.pool
+    agents = o.pool
     elites = return_elites(agents, NE)
     throng = return_throng(agents, NE, NP)
 

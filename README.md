@@ -19,9 +19,9 @@ function ackley(x::AbstractVector{T}) where T<:Real
     return -20.0 * exp(-arg1) - exp(arg2) + ℯ + 20.0
 end
 
-ND = 15
-lb = ntuple(i -> -32.0, ND) # lower bounds
-ub = ntuple(i -> +32.0, ND) # upper bounds
+ND  = 15
+lb  = ntuple(i -> -32.0, ND) # lower bounds
+ub  = ntuple(i -> +32.0, ND) # upper bounds
 obj = minimizer(ND)         # create an object for the optimization
 minimize!(obj, ackley, lb, ub, avgtimes=3)
 

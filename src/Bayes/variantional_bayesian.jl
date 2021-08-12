@@ -8,9 +8,9 @@ function vbi_update!(Λn::MatIO, mn::VecIO, Jn::MatI, kn::VecI, Λy::MatI, An::M
     copy!(Λb, Λn)                       # copy to buffer matrix
     #### Update mean vector of params. by Cholesky factorization
     gemv!('T', true, An, kn, true, mn)  # An * kn + mn → mn
-    _, cholesky_state = potrf!('U', Λb)
-    trsv!('U', 'T', 'N', Λb, mn)
-    trsv!('U', 'N', 'N', Λb, mn)
+    _, cholesky_state = potrf!('L', Λb)
+    trsv!('L', 'N', 'N', Λb, mn)
+    trsv!('L', 'T', 'N', Λb, mn)
     return cholesky_state
 end
 

@@ -98,9 +98,9 @@ struct FFT
     frq::Vector{Float64}
 
     function FFT(N::Int)
-        cxy = Matrix(undef, N, 2)
-        crθ = Matrix(undef, N, 2)
-        frq = Vector(undef, N)
+        cxy = Matrix{Float64}(undef, N, 2)
+        crθ = Matrix{Float64}(undef, N, 2)
+        frq = Vector{Float64}(undef, N)
         return new(cxy, crθ, twiddle(N >> 1), frq)
     end
 end
