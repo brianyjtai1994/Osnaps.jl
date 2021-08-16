@@ -22,7 +22,7 @@ end
 ND  = 15
 lb  = ntuple(i -> -32.0, ND) # lower bounds
 ub  = ntuple(i -> +32.0, ND) # upper bounds
-obj = minimizer(ND)         # create an object for the optimization
+obj = minimizer(ND)          # create an object for the optimization
 minimize!(obj, ackley, lb, ub, avgtimes=3)
 
 println(obj.xsol) # print the resulted solution
