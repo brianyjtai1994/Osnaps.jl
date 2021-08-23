@@ -23,6 +23,7 @@ include("./utils/stats.jl")
 include("./utils/sorting.jl")
 include("./utils/interpolation.jl")
 include("./optimizer/minimizer.jl")
+include("./DiffEq/forward.jl")
 
 export fcall, 𝚷
 

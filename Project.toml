@@ -1,7 +1,7 @@
 name = "Osnaps"
 uuid = "fb59780d-f43e-4e99-95bf-76de9f0a287a"
 authors = ["yctai <brianyjtai1994@gmail.com>"]
-version = "0.1.7"
+version = "0.1.8"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
