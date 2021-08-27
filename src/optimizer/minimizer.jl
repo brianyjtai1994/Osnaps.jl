@@ -4,7 +4,7 @@ include("./agent.jl")
 include("./constraint.jl")
 include("./optimizer.jl")
 
-struct GenericMinimizer
+struct GenericMinimizer <: AbstractMinimizer
     xsol::Vector{Float64}
     xerr::Vector{Float64}
     buff::Vector{Float64}
@@ -102,7 +102,7 @@ Arguments:
               prevent the population falling into local minimal (*optional*).
 - `avgtimes`: Number of average times of the whole minimization process (*optional*).
 """
-minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(obj, fn, lb, ub, itmax, dmax, avgtimes)
+minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(o, fn, lb, ub, itmax, dmax, avgtimes)
 
 # @code_warntype ✓
 function minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}

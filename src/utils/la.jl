@@ -1,3 +1,5 @@
+cubic(x::Real) = x * x * x
+
 function apy2(x::Real, y::Real)
     isnan(x) && return x
     isnan(y) && return y
@@ -8,6 +10,18 @@ function apy2(x::Real, y::Real)
     z = min(xabs, yabs)
     iszero(z) && return w
     return w * sqrt(1.0 + abs2(z / w))
+end
+
+function sqr2(x::Real, y::Real)
+    isnan(x) && return x
+    isnan(y) && return y
+    # general case
+    xabs = abs(x)
+    yabs = abs(y)
+    w = max(xabs, yabs)
+    z = min(xabs, yabs)
+    iszero(z) && return abs2(w)
+    return abs2(w) * (1.0 + abs2(z / w))
 end
 
 function unsafe_copy!(des::AbstractArray, src::AbstractArray)
@@ -73,14 +87,6 @@ function _dot(x::VecI, A::MatI, y::VecI)
     return ret
 end
 
-# x - y → z
-function xmy2z!(x::VecI, y::VecI, z::VecIO)
-    @simd for i in eachindex(z)
-        @inbounds z[i] = x[i] - y[i]
-    end
-    return nothing
-end
-
 """
     dot(x, A, y)
 
@@ -91,4 +97,13 @@ function dot(x::VecI, A::MatI, y::VecI)
     M == length(x) || error("dot: length(x) ≠ size(A, 1) = $M.")
     N == length(y) || error("dot: length(y) ≠ size(A, 2) = $N.")
     return _dot(x, A, y)
+end
+
+function logdet(A::MatI)
+    n = checksquare(A)
+    r = 0.0
+    @inbounds for i in eachindex(1:n)
+        r += log(abs(A[i,i]))
+    end
+    return r
 end

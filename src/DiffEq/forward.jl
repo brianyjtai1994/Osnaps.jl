@@ -1,4 +1,10 @@
-export Dual, duals
+export @gcall, Dual, duals
+
+macro gcall(e::Expr)
+    fname = e.args[1]
+    e.args[1] = :duals
+    return Expr(:call, esc(fname), Expr(:..., esc(e)))
+end
 
 struct Partial{N}
     p::NTuple{N,Float64}
@@ -187,4 +193,11 @@ function apy2(x::Dual{N}, y::Dual{N}) where N
     yv = y.v
     de = apy2(xv, yv)
     return Dual(de, axpby(xv / de, x.p, yv / de, y.p))
+end
+
+function sqr2(x::Dual{N}, y::Dual{N}) where N
+    xv = x.v
+    yv = y.v
+    fv = sqr2(xv, yv)
+    return Dual(fv, axpby(2.0 * xv, x.p, 2.0 * yv, y.p))
 end
