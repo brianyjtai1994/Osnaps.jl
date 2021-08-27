@@ -1,95 +1,137 @@
-# compute: Λ(n+1) ← Λ(0) + J(n)' * Λy * J(n)
-function varbayes_update!(Λn::MatIO, Λ0::MatI, Λy::MatI, Jn::MatI, An::MatI)
-    symm!('L', 'U', 1.0, Λy, Jn, 0.0, An)
-    gemm!('T', 'N', 1.0, An, Jn, 1.0, Λn)
+export varbayes
+
+function varbayes_update!(ks::VecIO, ys::VecI)
+    @simd for i in eachindex(ks)
+        @inbounds ks[i] = ys[i] - ks[i]
+    end
     return nothing
 end
 
-# compute: Δ(n) ← A(n)' * k(n) - Λ(0) * [m(n) - m(0)]
-function varbayes_lmstep!(Δn::VecB, Λ0::MatI, mb::VecB, An::MatB, kn::VecI)
-    symv!('U', 1.0, Λ0, mb,  0.0, Δn) # Δ(n) ← Λ(0) * [m(n) - m(0)]
-    gemv!('T', 1.0, An, kn, -1.0, Δn) # Δ(n) ← A(n) * k(n) - Δ(n)
+function varbayes_update!(Δm::VecIO, ms::VecI, m0::VecI)
+    @simd for i in eachindex(Δm)
+        @inbounds Δm[i] = ms[i] - m0[i]
+    end
     return nothing
 end
 
-# compute: m(n+1) ← m(n) + Δ(n) \ [Λ(n+1) + αI]
-function varbayes_lmstep!(mn::VecIO, Λf::MatB, α::Real, Δn::VecB)
+# compute: Λn ← Λ0 + Js' * Λy * Js
+function varbayes_update!(Λn::MatIO, Λy::MatI, Λ0::MatI, Js::MatI, As::MatB)
+    unsafe_copy!(Λn, Λ0)                  # Λn ← Λ0
+    symm!('L', 'U', 1.0, Λy, Js, 0.0, As) # As ← Λy  * Js
+    gemm!('T', 'N', 1.0, As, Js, 1.0, Λn) # Λs ← As' * Js + Λ0
+    return nothing
+end
+
+varbayes_lmdamp(μ::Real, ρ::Real) = ρ < 0.9367902323681495 ? μ * (1.0 - cubic(2.0 * ρ - 1.0)) : μ / 3.0
+
+function varbayes_lmdamp(Λn::MatI)
+    μ = -Inf
+    @inbounds for i in axes(Λn, 1)
+        μ = max(μ, Λn[i,i])
+    end
+    return μ
+end
+
+# compute: hn ← As' * ks - Λ0 * (mn - m0)
+function varbayes_lmstep!(hn::VecB, Λ0::MatI, Δm::VecB, As::MatB, ks::VecI)
+    symv!('U', 1.0, Λ0, Δm,  0.0, hn) # hn ← Λ0 * Δm
+    gemv!('T', 1.0, As, ks, -1.0, hn) # hn ← As' * ks - hn
+    return nothing
+end
+
+# compute: mn ← mn + hn, (J' * Λy * J + Λ0 + μI) * hn = (J' * Λy * k - Λ0 * Δm)
+function varbayes_lmstep!(mn::VecIO, ms::VecI, hn::VecI, Λf::MatB, μ::Real)
     @simd for i in eachindex(mn)
-        @inbounds Λf[i] += α
+        @inbounds Λf[i,i] += μ # Λf ← Λn + μI
     end
     _, cholesky_state = potrf!('L', Λf)
-    trsv!('L', 'N', 'N', Λf, Δn)
-    trsv!('L', 'T', 'N', Λf, Δn)
-    axpy!(1.0, Δn, mn)
+    trsv!('L', 'N', 'N', Λf, hn)
+    trsv!('L', 'T', 'N', Λf, hn)
+    @simd for i in eachindex(mn)
+        @inbounds mn[i] = ms[i] + hn[i]
+    end
     return cholesky_state
 end
 
-# compute lower bound
-function varbayes_lowbnd!(Λy::MatI, kn::VecI, Λ0::MatI, mb::VecB, Λf::MatB, Λe::MatB)
-    _, cholesky_state = potrf!('L', Λf)
+function varbayes_energy!(Λy::MatI, ks::VecI, Λ0::MatI, Δm::VecB, Λf::MatB, Λe::MatB)
     trsm!('L', 'L', 'N', 'N', 1.0, Λf, Λe)
     trsm!('L', 'L', 'T', 'N', 1.0, Λf, Λe)
-    ret = 1.0
-    @inbounds for i in eachindex(mb)
-        ret *= abs2(Λf[i,i])
-    end
-    ret += dot(kn, Λy, kn) + dot(mb, Λ0, mb) + tr(Λe)
-    return ret, cholesky_state
+    return -0.5 * (dot(ks, Λy, ks) + dot(Δm, Λ0, Δm) + logdet(Λf) + tr(Λe))
 end
 
-# Unfinished version
-function varbayes(f, g, m0::VecI, Λ0::MatI, xs::VecI, ys::VecI; σ::Real=1.0, itmax::Int=50)
-    M  = length(ps)
-    N  = length(xs)
-    #### Allocation of vectors
-    ms = similar(m0)       # solution
-    mn = similar(m0)       # trial of solution
-    mb = similar(m0)       # buffer for computing evidence
-    Δn = similar(m0)       # buffer for LM step
-    kn = similar(ys)       # deviation from model
-    #### Allocation of matrices
-    Λs = similar(Λ0)       # solution
-    Λn = similar(Λ0)       # trail of solution
-    Λf = similar(Λ0)       # buffer to be factorized
-    Λe = similar(Λ0)       # buffer for computing evidence
-    Λb = similar(Λ0)       # buffer for backup
-    Jn = similar(ys, N, M) # Jacobian matrix
-    An = similar(ys, N, M) # buffer for Λy * Jn
-    #### Initialization
-    unsafe_copy!(mn, m0)
-    unsafe_copy!(Λn, Λ0)
-    LowBnd_best = Inf      # evidence of solution
-    cholesky_state = 0.0   # monitor if Λn is positive definite
-    isfound = 0
-    it = 0
-    while it < itmax
+# barebone version
+function varbayes(m0::VecI, Λ0::MatI, ys::VecI, Λy::MatI, mo::Function; τ::Real=1e-3, itmax::Int=100)
+    np = length(m0) # dims of params
+    nd = length(ys) # dims of data
+
+    #### Allocations ####
+    ks = Vector{Float64}(undef, nd)
+    kn = Vector{Float64}(undef, nd)
+    hn = Vector{Float64}(undef, np)
+    Δm = Vector{Float64}(undef, np)
+    ms = Vector{Float64}(undef, np)
+    mn = Vector{Float64}(undef, np)
+
+    Js = Matrix{Float64}(undef, nd, np)
+    Jn = Matrix{Float64}(undef, nd, np)
+    As = Matrix{Float64}(undef, nd, np)
+    An = Matrix{Float64}(undef, nd, np)
+    Λs = Matrix{Float64}(undef, np, np)
+    Λn = Matrix{Float64}(undef, np, np)
+    Λe = Matrix{Float64}(undef, np, np)
+    Λf = Matrix{Float64}(undef, np, np)
+
+    unsafe_copy!(ms, m0)
+    unsafe_copy!(Λs, Λ0)
+
+    fcall!(ks, mo, ms) # use current best `ms` to compute `ks`
+    gcall!(Js, mo, ms) # use current best `ms` to compute `Js`
+    varbayes_update!(Λn, Λy, Λ0, Js, As)
+    μ = varbayes_lmdamp(Λn) * τ
+    ν = 2.0
+
+    varbayes_update!(ks, ys)
+    varbayes_update!(Δm, ms, m0)
+    unsafe_copy!(Λf, Λs) # Λf ← Λs for factorization
+    unsafe_copy!(Λe, Λn) # Λe ← Λn for free energy
+    _, cholesky_state = potrf!('L', Λf)
+    Fn = varbayes_energy!(Λy, ks, Λ0, Δm, Λf, Λe)
+
+    isfound = 0; it = 0
+    while isfound < 5 && it < itmax
         it += 1
-        # compute deviation
-        fcall!(kn, f,  mn)
-        gcall!(Jn, g,  mn)
-        xmy2z!(ys, kn, kn)
-        # update Λn
-        unsafe_copy!(Λb, Λn)                 # Λb     ← Λ(n), copy
-        unsafe_copy!(Λf, Λn)                 # Λf     ← Λ(n), copy
-        unsafe_copy!(Λn, Λ0)                 # Λ(n)   ← Λ(0), copy
-        varbayes_update!(Λn, Λ0, Λy, Jn, An) # Λ(n+1) ← Λ(n), copy
-        # check evidence saturated
-        xmy2z!(mn, m0, mb)                   # mb ← m(n) - m(0)
-        unsafe_copy!(Λe, Λn)                 # Λe ← Λ(n+1), copy
-        Ln, cholesky_state = varbayes_lowbnd!(Λy, kn, Λ0, mb, Λf, Λe)
-        if Ln < LowBnd_best && cholesky_state == 0.0
-            LowBnd_best = Ln
+        varbayes_lmstep!(hn, Λ0, Δm, As, ks)
+        unsafe_copy!(Λf, Λn) # Λf ← Λn
+        cholesky_state = varbayes_lmstep!(mn, ms, hn, Λf, μ)
+
+        # compute predicted gain of the free energy by linear approximation
+        Ln = 0.5 * (dot(hn, Λn, hn) + μ * dot(hn, hn))
+
+        # to peek if the free energy is increased by `hn`
+        fcall!(kn, mo, mn) # use new trial `mn` to compute `kn`
+        gcall!(Jn, mo, mn) # use new trial `mn` to compute `Jn`
+        varbayes_update!(Λe, Λy, Λ0, Jn, An)
+        varbayes_update!(kn, ys)
+        varbayes_update!(hn, mn, m0)
+        unsafe_copy!(Λf, Λn) # Λf ← Λn
+        _, cholesky_state = potrf!('L', Λf)
+        Ft = varbayes_energy!(Λy, kn, Λ0, hn, Λf, Λe)
+        ρ  = (Ft - Fn) / Ln
+
+        if ρ > 0
+            Fn = Ft
             unsafe_copy!(ms, mn)
-            unsafe_copy!(Λs, Λb)
-            isfound = 0
+            unsafe_copy!(Λs, Λn)
+            unsafe_copy!(ks, kn)
+            unsafe_copy!(Js, Jn)
+            unsafe_copy!(As, An)
+            unsafe_copy!(Δm, hn)
+            varbayes_update!(Λn, Λy, Λ0, Js, As)
+            μ = varbayes_lmdamp(μ, ρ)
+            ν = 2.0; isfound = 0
         else
-            isfound += 1
-            isfound > 9 && break
+            μ = μ * ν; ν = ν * 2.0; isfound += 1
         end
-        # update mn
-        unsafe_copy!(Λf, Λn)                 # Λf ← Λ(n+1), copy
-        varbayes_lmstep!(Δn, Λ0, mb, An, kn) # Δ(n) ← A(n)' * k(n) - Λ(0) * [m(n) - m(0)]
-        cholesky_state = varbayes_lmstep!(mn, Λf, 0.01, Δn)
     end
     return ms, Λs
 end

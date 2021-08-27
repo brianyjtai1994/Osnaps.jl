@@ -17,6 +17,8 @@ using LinearAlgebra.LAPACK: potrf!
 abstract type AbstractMinimizer end
 
 fcall(fn::Function, x::VecI) = fn(x)
+fcall!(y::VecIO, f!::Function, ps::VecI) = f!(y, ps)
+gcall!(J::MatIO, g!::Function, ps::VecI) = g!(J, ps)
 
 include("./utils/la.jl")
 include("./utils/lu.jl")
@@ -26,7 +28,6 @@ include("./utils/sorting.jl")
 include("./utils/interpolation.jl")
 include("./optimizer/minimizer.jl")
 include("./DiffEq/forward.jl")
-
-export fcall, 𝚷
+include("./Bayes/variantional_bayesian.jl")
 
 end # module
