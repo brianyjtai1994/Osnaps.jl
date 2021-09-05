@@ -1,135 +1,131 @@
-export varbayes
+struct VarBayesInfMinimizer
+    xs::Vector{Float64}
+    Σs::Matrix{Float64}
+    rs::Vector{Float64}
+    rc::Vector{Float64}
+    θs::Vector{Float64}
+    θc::Vector{Float64}
+    Δθ::Vector{Float64}
+    dθ::Vector{Float64}
+    δθ::Vector{Float64}
+    Js::Matrix{Float64}
+    Jc::Matrix{Float64}
+    As::Matrix{Float64}
+    Ac::Matrix{Float64}
+    Λs::Matrix{Float64}
+    Λc::Matrix{Float64}
+    Λt::Matrix{Float64}
+    Λf::Matrix{Float64}
+    ny::Int
+    nd::Int
 
-function varbayes_update!(ks::VecIO, ys::VecI)
-    @simd for i in eachindex(ks)
-        @inbounds ks[i] = ys[i] - ks[i]
+    function VarBayesInfMinimizer(nd::Int, ny::Int)
+        @narray (ny,)    (rs, rc)
+        @narray (nd,)    (xs, θs, θc, Δθ, dθ, δθ)
+        @narray (ny, nd) (Js, Jc, As, Ac)
+        @narray (nd, nd) (Σs, Λs, Λc, Λt, Λf)
+        return new(xs, Σs, rs, rc, θs, θc, Δθ, dθ, δθ, Js, Jc, As, Ac, Λs, Λc, Λt, Λf, ny, nd)
     end
-    return nothing
 end
 
-function varbayes_update!(Δm::VecIO, ms::VecI, m0::VecI)
-    @simd for i in eachindex(Δm)
-        @inbounds Δm[i] = ms[i] - m0[i]
-    end
-    return nothing
-end
+Base.show(io::IO, o::VarBayesInfMinimizer) = print(io, "Variational Bayesian Inference Minimizer(nd = $(o.nd), nd = $(o.np))")
 
-# compute: Λn ← Λ0 + Js' * Λy * Js
-function varbayes_update!(Λn::MatIO, Λy::MatI, Λ0::MatI, Js::MatI, As::MatB)
-    unsafe_copy!(Λn, Λ0)                  # Λn ← Λ0
-    symm!('L', 'U', 1.0, Λy, Js, 0.0, As) # As ← Λy  * Js
-    gemm!('T', 'N', 1.0, As, Js, 1.0, Λn) # Λs ← As' * Js + Λ0
-    return nothing
-end
+function minimize!(o::VarBayesInfMinimizer, fn::Function, θ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI, τ::Real, h::Real, itmax::Int)
+    invh1 = inv(h)
+    invh2 = invh1 * invh1
 
-function varbayes_energy!(Λy::MatI, ks::VecI, Λ0::MatI, Δm::VecB, Λf::MatB, Λe::MatB)
-    trsm!('L', 'L', 'N', 'N', 1.0, Λf, Λe)
-    trsm!('L', 'L', 'T', 'N', 1.0, Λf, Λe)
-    return -0.5 * (dot(ks, Λy, ks) + dot(Δm, Λ0, Δm) + logdet(Λf) + tr(Λe))
-end
-
-# barebone version
-function varbayes(m0::VecI, Λ0::MatI, ys::VecI, Λy::MatI, mo::Function; τ::Real=1e-3, α::Real=0.1, itmax::Int=100)
-    np = length(m0) # dims of params
-    nd = length(ys) # dims of data
-
+    nd = o.nd; one2nd = eachindex(1:nd)
+    ny = o.ny; one2ny = eachindex(1:ny)
     #### Allocations ####
-    ks = Vector{Float64}(undef, nd)
-    kn = Vector{Float64}(undef, nd)
-    hn = Vector{Float64}(undef, np)
-    Δm = Vector{Float64}(undef, np)
-    ms = Vector{Float64}(undef, np)
-    mn = Vector{Float64}(undef, np)
-
-    Js = Matrix{Float64}(undef, nd, np)
-    Jn = Matrix{Float64}(undef, nd, np)
-    As = Matrix{Float64}(undef, nd, np)
-    An = Matrix{Float64}(undef, nd, np)
-    Λs = Matrix{Float64}(undef, np, np)
-    Λn = Matrix{Float64}(undef, np, np)
-    Λe = Matrix{Float64}(undef, np, np)
-    Λf = Matrix{Float64}(undef, np, np)
-
-    invα1 = inv(α)
-    invα2 = abs2(invα1)
-
-    unsafe_copy!(ms, m0)
-    unsafe_copy!(Λs, Λ0)
-
-    fcall!(ks, mo, ms) # use current best `ms` to compute `ks`
-    gcall!(Js, mo, ms) # use current best `ms` to compute `Js`
-    varbayes_update!(Λn, Λy, Λ0, Js, As)
-    μ = diagmax(Λn) * τ
+    @nget o (xs, Σs, rs, rc, θs, θc, Δθ, dθ, δθ, Js, Jc, As, Ac, Λs, Λc, Λt, Λf)
+    #### Initialization
+    @cpy! (θs, Λs) (θ0, Λ0)
+    #### Compute precision matrix
+    rsd!(rs, fn, θs; x, y)
+    jac!(Js, fn, θs; x)
+    cpy!(Λc, Λ0)
+    symm!('L', 'U', 1.0, Λy, Js, 0.0, As) # As ← Λy  * Js
+    gemm!('T', 'N', 1.0, As, Js, 1.0, Λc) # Λc ← As' * Js + Λ0
+    μ = diagmax(Λc, nd) * τ
     ν = 2.0
-
-    varbayes_update!(ks, ys)
-    varbayes_update!(Δm, ms, m0)
-    unsafe_copy!(Λf, Λs) # Λf ← Λs for factorization
-    unsafe_copy!(Λe, Λn) # Λe ← Λn for free energy
+    #### Compute free energy
+    fill!(Δθ, 0.0)
+    @cpy! (Λf, Σs) (Λs, Λc)
     _, cholesky_state = potrf!('L', Λf)
-    Fn = varbayes_energy!(Λy, ks, Λ0, Δm, Λf, Λe)
-
-    isfound = 0; it = 0
-    while isfound < 5 && it < itmax
+    trsm!('L', 'L', 'N', 'N', 1.0, Λf, Σs)
+    trsm!('L', 'L', 'T', 'N', 1.0, Λf, Σs)
+    Fnow = 0.5 * (dot(rs, ny, Λy, rs, ny) + tr(Σs, nd)) + logdet(Λf, nd)
+    #### Iteration
+    it = 0
+    while it < itmax
         it += 1
         # Damped Gauss-Newton approximation
-        λ = diagmax(Λn) * μ
-        unsafe_copy!(Λf, Λn) # Λf ← Λn
-        @simd for i in eachindex(mn)
-            @inbounds Λf[i,i] += λ # Λf ← Λn + λI
+        cpy!(Λf, Λc)
+        λ = μ * diagmax(Λc, nd)
+        @simd for i in one2nd
+            @inbounds Λf[i,i] += λ
         end
         _, cholesky_state = potrf!('L', Λf)
-        # Levenberg-Marquardt step
-        symv!('U', 1.0, Λ0, Δm,  0.0, hn) # hn ← Λ0 * Δm
-        gemv!('T', 1.0, As, ks, -1.0, hn) # hn ← As' * ks - hn
-        trsv!('L', 'N', 'N', Λf, hn)
-        trsv!('L', 'T', 'N', Λf, hn)
-        # Finite-difference approximation for Hessian
-        @simd for i in eachindex(mn)
-            @inbounds mn[i] = ms[i] + α * hn[i]
+        # Levenberg-Marquardt step by 1st order linearization
+        symv!('U', 1.0, Λ0, Δθ,  0.0, dθ) # dθ ← Λ0  * Δθ
+        gemv!('T', 1.0, As, rs, -1.0, dθ) # dθ ← As' * rs - dθ
+        trsv!('L', 'N', 'N', Λf, dθ)
+        trsv!('L', 'T', 'N', Λf, dθ)
+        # Finite-difference of 2nd order directional derivative
+        @simd for i in one2nd
+            @inbounds θc[i] = θs[i] + h * dθ[i]
         end
-        fcall!(kn, mo, mn)
-        @simd for i in eachindex(kn)
-            @inbounds kn[i] = ys[i] - kn[i] - ks[i]
+        rsd!(rc, fn, θc; x, y)
+        axpy!(-1.0, rs, rc)
+        gemv!('N', invh1, Js, dθ, invh2, rc)
+        # Geodesic acceleration step by 2nd order linearization
+        gemv!('T', 1.0, As, rc, 0.0, δθ)
+        trsv!('L', 'N', 'N', Λf, δθ)
+        trsv!('L', 'T', 'N', Λf, δθ)
+        gratio = 2.0 * nrm2(δθ) / nrm2(dθ)
+        gratio > 0.75 && (μ *= ν; ν *= 2.0; continue)
+        # (Levenberg-Marquardt velocity) + (Geodesic acceleration)
+        axpy!(1.0, δθ, dθ)
+        # Compute predicted gain of the free energy by linear approximation
+        LinApprox = 0.5 * dot(dθ, nd, Λc, dθ, nd) + μ * dot(dθ, dθ, nd)
+        # Compute gain ratio
+        @simd for i in one2nd
+            @inbounds θc[i] = θs[i] + dθ[i]
         end
-        gemv!('N', invα1, Js, hn, invα2, kn)
-        # Geodesic acceleration step
-        gemv!('T', 1.0, As, kn, 0.0, mn) # use mn for geodesic step
-        trsv!('L', 'N', 'N', Λf, mn)
-        trsv!('L', 'T', 'N', Λf, mn)
-        @simd for i in eachindex(hn)
-            @inbounds hn[i] += mn[i]
+        rsd!(rc, fn, θc; x, y)
+        jac!(Jc, fn, θc; x)
+        cpy!(Λt, Λ0)
+        symm!('L', 'U', 1.0, Λy, Jc, 0.0, Ac) # Ac ← Λy  * Jc
+        gemm!('T', 'N', 1.0, Ac, Jc, 1.0, Λt) # Λt ← Ac' * Jc + Λ0
+        @simd for i in one2nd
+            @inbounds δθ[i] = θc[i] - θ0[i]
         end
-        # compute predicted gain of the free energy by linear approximation
-        Ln = 0.5 * (dot(hn, Λn, hn) + μ * dot(hn, hn))
-        # to peek if the free energy is increased by `hn`
-        @simd for i in eachindex(mn)
-            @inbounds mn[i] = ms[i] + hn[i]
-        end
-        fcall!(kn, mo, mn) # use new trial `mn` to compute `kn`
-        gcall!(Jn, mo, mn) # use new trial `mn` to compute `Jn`
-        varbayes_update!(Λe, Λy, Λ0, Jn, An)
-        varbayes_update!(kn, ys)
-        varbayes_update!(hn, mn, m0)
-        unsafe_copy!(Λf, Λn) # Λf ← Λn
+        @cpy! (Λf, Σs) (Λc, Λt)
         _, cholesky_state = potrf!('L', Λf)
-        Ft = varbayes_energy!(Λy, kn, Λ0, hn, Λf, Λe)
-        ρ  = (Ft - Fn) / Ln # gain ratio
+        trsm!('L', 'L', 'N', 'N', 1.0, Λf, Σs)
+        trsm!('L', 'L', 'T', 'N', 1.0, Λf, Σs)
+        Fnew = 0.5 * (dot(rc, ny, Λy, rc, ny) + dot(δθ, nd, Λ0, δθ, nd) + tr(Σs, nd)) + logdet(Λf, nd)
 
-        if ρ > 0
-            Fn = Ft
-            unsafe_copy!(ms, mn)
-            unsafe_copy!(Λs, Λn)
-            unsafe_copy!(ks, kn)
-            unsafe_copy!(Js, Jn)
-            unsafe_copy!(As, An)
-            unsafe_copy!(Δm, hn)
-            varbayes_update!(Λn, Λy, Λ0, Js, As)
+        Δ = Fnow - Fnew; ρ = Δ / LinApprox
+        if ρ > 0.0
+            Fnow = Fnew
+            @cpy! (θs, Λs) (θc, Λc)
+            (maximum(δθ) < 1e-16 || Δ < 1e-10) && break # Check localized convergence
+            @cpy! (rs, Λc, Js, As, Δθ) (rc, Λt, Jc, Ac, δθ)
             μ = ρ < 0.9367902323681495 ? μ * (1.0 - cubic(2.0 * ρ - 1.0)) : μ / 3.0
-            ν = 2.0; isfound = 0
+            ν = 2.0
         else
-            μ *= ν; ν *= 2.0; isfound += 1
+            μ > 1e10 && break # Check localized divergence
+            μ *= ν; ν *= 2.0
         end
     end
-    return ms, Λs
+    # compute solution parameters and covariance
+    cpy!(xs, θs)
+    fill!(Σs, 0.0)
+    @simd for i in one2nd
+        @inbounds Σs[i,i] = 1.0
+    end
+    trsm!('L', 'L', 'N', 'N', 1.0, Λf, Σs)
+    trsm!('L', 'L', 'T', 'N', 1.0, Λf, Σs)
+    return nothing
 end

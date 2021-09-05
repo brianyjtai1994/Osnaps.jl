@@ -11,19 +11,23 @@ const MatIO = AbstractMatrix # In/Out Matrix
 
 const 𝚷 = 2.0 * π
 
-using LinearAlgebra.BLAS: gemv!, symv!, trsv!, gemm!, symm!, trsm!
+using LinearAlgebra.BLAS: axpy!, gemv!, symv!, trsv!, gemm!, symm!, trsm!
 using LinearAlgebra.LAPACK: potrf!
 
 abstract type AbstractMinimizer end
 
-fcall(fn::Function, x::VecI) = fn(x)
-fcall!(y::VecIO, f!::Function, ps::VecI) = f!(y, ps)
-gcall!(J::MatIO, g!::Function, ps::VecI) = g!(J, ps)
+fcall(f::Function, x::VecI) = f(x)
+gcall(g::Function, x::VecI) = g(x)
+
+function fnc! end # fnc!(y, f, θ; x)
+function jac! end # jac!(J, f, θ; x)
+function rsd! end # rsd!(r, f, θ; x, y)
 
 include("./utils/la.jl")
 include("./utils/lu.jl")
 include("./utils/fft.jl")
 include("./utils/stats.jl")
+include("./utils/macros.jl")
 include("./utils/sorting.jl")
 include("./utils/interpolation.jl")
 include("./optimizer/minimizer.jl")
