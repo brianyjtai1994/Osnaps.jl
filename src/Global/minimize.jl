@@ -1,5 +1,3 @@
-export minimizer, minimize!
-
 include("./agent.jl")
 include("./constraint.jl")
 include("./optimizer.jl")
@@ -22,19 +20,6 @@ struct GenericMinimizer <: AbstractMinimizer
         return new(xsol, xerr, buff, fork, pool, NP, NE)
     end
 end
-
-"""
-    minimizer(ND::Int; NP::Int=35*ND, NE::Int=ND+1)
-
-An interface function to create/initialize an object for the minimization.
-
-Arguments:
----
-- `ND`: Dimension of parameters to be minimized.
-- `NP`: Desired population size (*optional*).
-- `NE`: Desired size of elites (*optional*).
-"""
-minimizer(ND::Int; NP::Int=35*ND, NE::Int=ND+1) = GenericMinimizer(ND, NP, NE)
 
 # @code_warntype ✓
 function inits!(agents::VecIO{Agent}, lb::NTuple, ub::NTuple)
@@ -82,27 +67,6 @@ function group!(fork::VecIO{Int}, agents::VecI{Agent}, NE::Int, NC::Int)
         idx < NE ? idx += 1 : idx = 2
     end
 end
-
-"""
-    minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1)
-
-An interface function to proceed the minimization.
-
-Arguments:
----
-- `obj`:      An object for the minimization created by `minimizer(...)`.
-- `fn`:       Objective function to be minimized. 
-              `fn` should be callable with only one argument of `fn(x::Vector)`. 
-              If you have any additional arguments need to pass into it, 
-              dispatch the function by `fcall(fn, x) = fn(x; kwargs...)`
-- `lb`:       Lower bounds of minimization which are forced to be feasible.
-- `ub`:       Upper bounds of minimization which are forced to be feasible.
-- `itmax`:    Maximum of minimizg iteration (*optional*).
-- `dmax`:     An Euclidean distance acts as a criterion to
-              prevent the population falling into local minimal (*optional*).
-- `avgtimes`: Number of average times of the whole minimization process (*optional*).
-"""
-minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(o, fn, lb, ub, itmax, dmax, avgtimes)
 
 # @code_warntype ✓
 function minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}

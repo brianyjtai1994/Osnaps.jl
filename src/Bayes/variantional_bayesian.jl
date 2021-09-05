@@ -1,4 +1,4 @@
-struct VarBayesInfMinimizer
+struct VarBayesInfMinimizer <: AbstractMinimizer
     xs::Vector{Float64}
     Σs::Matrix{Float64}
     rs::Vector{Float64}

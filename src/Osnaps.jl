@@ -30,8 +30,9 @@ include("./utils/stats.jl")
 include("./utils/macros.jl")
 include("./utils/sorting.jl")
 include("./utils/interpolation.jl")
-include("./optimizer/minimizer.jl")
-include("./DiffEq/forward.jl")
 include("./Bayes/variantional_bayesian.jl")
+include("./Global/minimize.jl")
+include("./DiffEq/forward.jl")
+include("./minimizer.jl")
 
 end # module
