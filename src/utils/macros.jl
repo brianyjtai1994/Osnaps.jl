@@ -1,33 +1,37 @@
-macro narray(dims::Expr, vars::Expr, T::Symbol=:Float64)
-    d = dims.args
-    a = vars.args
-    m = length(d)
-    n = length(a)
+macro def(genre::Symbol, ex::Union{Expr,Symbol}, vars::Symbol...)
+    op = genre == :prop ? :(::) : genre == :vars ? :(=) :
+         error("@ndef(genre = $genre, ...) is invalid.")
+    n = length(vars)
     e = Vector{Expr}(undef, n)
     @inbounds for i in 1:n
-        e[i] = Expr(:(=), a[i], Expr(:call, :(Array{$T,$m}), :undef, d...))
+        e[i] = Expr(op, vars[i], ex)
     end
     return Expr(:escape, Expr(:block, e...))
 end
 
-macro nget(obj::Symbol, vars::Expr)
-    a = vars.args
-    n = length(a)
+macro get(obj::Symbol, vars::Symbol...)
+    n = length(vars)
     e = Vector{Expr}(undef, n)
     @inbounds for i in 1:n
-        e[i] = :($(a[i]) = $(obj).$(a[i]))
+        vari = vars[i]
+        e[i] = :($vari = $obj.$vari)
     end
     return Expr(:escape, Expr(:block, e...))
 end
 
-macro cpy!(de::Expr, se::Expr)
-    n = length(de.args)
-    n ≠ length(se.args) && error("@cpy!: length($se) ≠ length($de) = $n.")
-    d = de.args
-    s = se.args
+macro copy!(ex::Expr...)
+    n = length(ex)
     e = Vector{Expr}(undef, n)
     @inbounds for i in 1:n
-        e[i] = Expr(:call, :cpy!, d[i], s[i])
+        ei = ex[i]
+        ai = ei.args
+        if ai[1] == :(=>)
+            ai[1] = :unsafe_copy!
+            ai[2], ai[3] = ai[3], ai[2]
+        else
+            error("$ei has invalid symbol.")
+        end
+        e[i] = ei
     end
     return Expr(:escape, Expr(:block, e...))
 end

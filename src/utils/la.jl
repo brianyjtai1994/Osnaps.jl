@@ -24,7 +24,7 @@ function sqr2(x::Real, y::Real)
     return abs2(w) * (1.0 + abs2(z / w))
 end
 
-function cpy!(des::AbstractArray, src::AbstractArray)
+function unsafe_copy!(des::AbstractArray, src::AbstractArray)
     @simd for i in eachindex(des)
         @inbounds des[i] = src[i]
     end
