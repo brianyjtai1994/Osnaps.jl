@@ -1,6 +1,7 @@
-export minimizer, minimize!
+export optimizer, minimize!, inference!
+
 """
-    minimizer(nd::Int; np::Int=35*ND, ne::Int=ND+1, ny::Int=0, method::String="global")
+    optimizer(nd::Int; np::Int=35*ND, ne::Int=ND+1, ny::Int=0, method::String="global")
 
 An interface function to create/initialize an object for the minimization.
 
@@ -12,16 +13,16 @@ Arguments:
 - `ny`:     Size of data space (required for *variational-inference*).
 - `method`: Desired algorithm ("global", "variational-inference").
 """
-function minimizer(nd::Int; np::Int=35*nd, ne::Int=nd+1, ny::Int=0, method::String="global")
-    method == "global" && return GenericMinimizer(nd, np, ne)
+function optimizer(nd::Int; np::Int=35*nd, ne::Int=nd+1, ny::Int=0, method::String="global")
+    method == "global" && return GlobalMinimizer(nd, np, ne)
     if method == "varinf" || method == "varbayes" || method == "variational-inference"
         iszero(ny) && error("minimizer(..., ny): ny should be provided for variational inference.")
-        return VarInference(nd, ny)
+        return VarInfOptimizer(nd, ny)
     end
 end
 
 """
-    minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1)
+    minimize!(o::GlobalMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1)
 
 An interface function to proceed the "global" minimization.
 
@@ -39,10 +40,10 @@ Arguments:
               prevent the population falling into local minimal (*optional*).
 - `avgtimes`: Number of average times of the whole minimization process (*optional*).
 """
-minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(o, fn, lb, ub, itmax, dmax, avgtimes)
+minimize!(o::GlobalMinimizer, fn::Function, lb::NTuple{ND}, ub::NTuple{ND}; itmax::Int=210*ND, dmax::Real=1e-7, avgtimes::Int=1) where ND = minimize!(o, fn, lb, ub, itmax, dmax, avgtimes)
 
 """
-    minimize!(o::VarInference, fn::Function, θ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI; τ::Real=1e-3, h::Real=0.1, itmax::Int=100)
+    inference!(o::VarInfOptimizer, fn::Function, μ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI; τ::Real=1e-3, h::Real=0.1, itmax::Int=100)
 
 An interface function to proceed the variational Bayesian inference.
 
@@ -59,4 +60,4 @@ Arguments:
 - `h`:      Step size of finite-difference for computing geodesic acceleration.
 - `itmax`:  Maximum of minimizing iteration (*optional*).
 """
-minimize!(o::VarInference, fn::Function, θ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI; τ::Real=1e-3, h::Real=0.1, itmax::Int=100) = minimize!(o, fn, θ0, Λ0, x, y, Λy, τ, h, itmax)
+inference!(o::VarInfOptimizer, fn::Function, μ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI; τ::Real=1e-3, h::Real=0.1, itmax::Int=100) = inference!(o, fn, μ0, Λ0, x, y, Λy, τ, h, itmax)

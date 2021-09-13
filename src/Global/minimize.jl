@@ -2,7 +2,7 @@ include("./agent.jl")
 include("./constraint.jl")
 include("./optimizer.jl")
 
-struct GenericMinimizer <: AbstractMinimizer
+struct GlobalMinimizer <: AbstractOptimizer
     xsol::Vector{Float64}
     xerr::Vector{Float64}
     buff::Vector{Float64}
@@ -11,7 +11,7 @@ struct GenericMinimizer <: AbstractMinimizer
     NP::Int
     NE::Int
 
-    function GenericMinimizer(ND::Int, NP::Int, NE::Int)
+    function GlobalMinimizer(ND::Int, NP::Int, NE::Int)
         xsol = Vector{Float64}(undef, ND)
         xerr = Vector{Float64}(undef, ND)
         buff = Vector{Float64}(undef, ND)
@@ -69,7 +69,7 @@ function group!(fork::VecIO{Int}, agents::VecI{Agent}, NE::Int, NC::Int)
 end
 
 # @code_warntype ✓
-function minimize!(o::GenericMinimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}
+function minimize!(o::GlobalMinimizer, fn::Function, lb::NTuple{ND,T}, ub::NTuple{ND,T}, itmax::Int, dmax::Real, avgtimes::Int) where {ND,T<:Real}
     NP = o.NP
     NE = o.NE
     NC = NP - NE
