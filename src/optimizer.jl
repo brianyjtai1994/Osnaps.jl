@@ -60,4 +60,5 @@ Arguments:
 - `h`:      Step size of finite-difference for computing geodesic acceleration.
 - `itmax`:  Maximum of minimizing iteration (*optional*).
 """
+inference!(o::VarInfOptimizer, fn::Function, μ0::VecI, Λ0::MatI, x::VecI, y::VecI,  β::Real; τ::Real=1e-3, h::Real=0.1, itmax::Int=100) = inference!(o, fn, μ0, Λ0, x, y,  β, τ, h, itmax)
 inference!(o::VarInfOptimizer, fn::Function, μ0::VecI, Λ0::MatI, x::VecI, y::VecI, Λy::MatI; τ::Real=1e-3, h::Real=0.1, itmax::Int=100) = inference!(o, fn, μ0, Λ0, x, y, Λy, τ, h, itmax)

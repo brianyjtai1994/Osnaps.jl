@@ -11,7 +11,7 @@ const MatIO = AbstractMatrix # In/Out Matrix
 
 const 𝚷 = 2.0 * π
 
-using LinearAlgebra.BLAS: axpy!, gemv!, symv!, trsv!, gemm!, symm!, trsm!
+using LinearAlgebra.BLAS: axpy!, gemv!, symv!, trsv!, gemm!, symm!, syrk!, trsm!
 using LinearAlgebra.LAPACK: potrf!
 
 abstract type AbstractOptimizer end

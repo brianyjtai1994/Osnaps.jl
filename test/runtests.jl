@@ -31,6 +31,9 @@ print_body(s::String) = println(" "^13 * s)
     print_body("xerr[2] = $(round(sqrt(p.Σ[4]), digits=3))")
     @test p.μ[1] ≈ 213.80 atol=0.01
     @test p.μ[2] ≈   0.55 atol=0.01
+    p = inference!(o, fn, [10., 5.5], reshape([ifelse(i == j, 1e-5, 0.0) for i in 1:2, j in 1:2], (2, 2)), X, Y, 1.0)
+    @test p.μ[1] ≈ 213.80 atol=0.01
+    @test p.μ[2] ≈   0.55 atol=0.01
 end
 
 @testset "Variational Inference: NIST Dataset(Eckerle4)" begin
@@ -74,6 +77,10 @@ end
     print_body("xerr[1] = $(round(sqrt(p.Σ[1]), digits=3))")
     print_body("xerr[2] = $(round(sqrt(p.Σ[5]), digits=3))")
     print_body("xerr[3] = $(round(sqrt(p.Σ[9]), digits=3))")
+    @test p.μ[1] ≈   1.554 atol=0.005
+    @test p.μ[2] ≈   4.088 atol=0.005
+    @test p.μ[3] ≈ 451.541 atol=0.005
+    p = inference!(o, fn, [1.5, 5.0, 450.0], reshape([ifelse(i == j, 1e-5, 0.0) for i in 1:3, j in 1:3], (3, 3)), X, Y, 1.0)
     @test p.μ[1] ≈   1.554 atol=0.005
     @test p.μ[2] ≈   4.088 atol=0.005
     @test p.μ[3] ≈ 451.541 atol=0.005
